@@ -10,7 +10,7 @@ module Tor
       attr_accessor :redirects_made
     end
 
-    def self.get(uri_or_host, path = nil, port = nil, max_redirects = 3)
+    def self.get(uri_or_host, headers = {}, path = nil, port = nil, max_redirects = 3)
       res, host = "", nil
       self.redirects_made = 0
 
@@ -28,6 +28,10 @@ module Tor
           request.delete(header)
           request.add_field(header, value)
         end
+        headers.each do |header, value|
+          request.delete(header)
+          request.add_field(header, value)
+        end
 
         res = http.request(request)
         res = follow_redirect(res, http, max_redirects) # Follow redirects
@@ -36,7 +40,7 @@ module Tor
       res
     end
 
-    def self.post(uri_or_host, post_options = {}, path = nil, port = nil)
+    def self.post(uri_or_host, post_options = {}, headers = {}, path = nil, port = nil)
       res, host = "", nil
       if path
         host = uri_or_host
@@ -45,12 +49,20 @@ module Tor
         port = uri_or_host.port
         path = uri_or_host.request_uri
       end
-
+      
       start_params = start_parameters(uri_or_host, host, port)
       start_socks_proxy(start_params) do |http|
         request = Net::HTTP::Post.new(path)
-        request.set_form_data(post_options)
+        if post_options.is_a? String then
+          request.body = post_options
+        else
+          request.set_form_data(post_options)
+        end
         Tor.configuration.headers.each do |header, value|
+          request.delete(header)
+          request.add_field(header, value)
+        end
+        headers.each do |header, value|
           request.delete(header)
           request.add_field(header, value)
         end
